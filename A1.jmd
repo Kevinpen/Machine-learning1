@@ -1,8 +1,9 @@
 ---
 title : Assignment 1
-author : Student Name and \#
+author : Gang Peng  \# 1002961921
 options:
-  eval: false #Set this to true if you'd like to evaluate the code in this document
+  eval: true #Set this to true if you'd like to evaluate the code in this document
+
 ---
 
 The goal of this assignment is to get you familiar with the basics of decision theory and gradient-based model fitting.
@@ -33,31 +34,43 @@ losses = [[10, 0],
           [1, 50],
           [0, 200]]
 
+
 num_actions = length(losses)
 
 function expected_loss_of_action(prob_spam, action)
     #TODO: Return expected loss over a Bernoulli random variable
     #      with mean prob_spam.
     #      Losses are given by the table above.
+
+    expected = prob_spam .* losses[action][1] .+ (1 .- prob_spam) * losses[action][2]
+
+    return expected
 end
 
 prob_range = range(0., stop=1., length=500)
 
 # Make plot
 using Plots
-for action in 1:num_actions
-  display(plot!(prob_range, expected_loss_of_action(prob_range, action)))
-end
+labels=["Show" "Folder" "Deleted"]
+
+p1=plot(prob_range, expected_loss_of_action(prob_range, 1),title="Expected wasted user time",
+         label=labels[1],xlabel="Spam Probability",ylabel="Wasted Time")
+plot!(prob_range,expected_loss_of_action(prob_range, 2),label=labels[2])
+display(plot!(prob_range,expected_loss_of_action(prob_range, 3),label=labels[3]))
 
 
 ```
-
 2. [2pts] Write a function that computes the optimal action given the probability of spam.
 
 ```julia
 function optimal_action(prob_spam)
   #TODO: return best action given the probability of spam.
   # Hint: Julia's findmin function might be helpful.
+  expected_losses=Array{Float64,1}(undef, num_actions)
+  for action in 1:num_actions
+      expected_losses[action]=expected_loss_of_action(prob_spam,action)
+  end
+  return findmin(expected_losses)
 end
 ```
 
@@ -71,19 +84,32 @@ optimal_actions = []
 for p in prob_range
     # TODO:  Compute the optimal action and its expected loss for
     # probability of spam given by p.
+    append!(optimal_losses, optimal_action(p)[1])
+    append!(optimal_actions, optimal_action(p)[2])
 end
-plot(prob_range, optimal_losses, linecolor=optimal_actions)
+
+plot(prob_range, optimal_losses, linecolor=optimal_actions,title="Expected loss of the optimal action",
+xlabel="Spam Probability",ylabel="Expected loss")
 ```
 
 4. [4pts] For exactly which range of the probabilities of an email being spam should we delete an email?
 Find the exact answer by hand using algebra.
 
+We should delete the email when the expected_losses is smaller for delete than for folder or show.
+
+That is the probobility of spam x satisfy:
+
+    x*1 + (1-x)*50 > (1-x)*200 and
+    x*10 > (1-x)*200
+
+When $x > \frac{150}{151} \approx 0.9934$, we should delete the email.
+
 # Regression
 
 ## Manually Derived Linear Regression [10pts]
 
-Suppose that 
-$X \in \mathbb{R}^{m \times n}$ with $n \geq m$ 
+Suppose that
+$X \in \mathbb{R}^{m \times n}$ with $n \geq m$
 and $Y \in \mathbb{R}^n$, and that $Y \sim \mathcal{N}(X^T\beta, \sigma^2 I)$.
 
 In this question you will derive the result that the maximum likelihood estimate $\hat\beta$ of $\beta$ is given by
@@ -93,19 +119,98 @@ $$
 $$
 
 1. [1pts] What happens if $n < m$?
+This means number of observations smaller than number independent variables. $(XX^T)^{-1}$ does not exist.
+Then we will not have an estimation of $\beta$.
+
 
 2. [2pts] What are the expectation and covariance matrix of $\hat\beta$, for a given true value of $\beta$?
 
+Since $\hat\beta = (XX^T)^{-1}XY$, and $Y = X^T\beta + \epsilon$,
+$$
+\begin{align*}
+\hat\beta &= (XX^T)^{-1}X(X^T\beta + \epsilon)\\
+&= \beta + (XX^T)^{-1}X\epsilon\\
+E[\hat\beta] &= E[\beta]+E[(XX^T)^{-1}X\epsilon]\\
+&=\beta+(XX^T)^{-1}XE[\epsilon]\\
+&= \beta
+\end{align*}
+$$
+
+As we usually assume $E[\epsilon]$=0.
+
+For the covariance matrix, since $\hat\beta - \beta = (XX^T)^{-1}X\epsilon$, we have
+$$
+\begin{align*}
+E[(\hat\beta - \beta)(\hat\beta - \beta)^T] &= E[((XX^T)^{-1}X\epsilon)((XX^T)^{-1}X\epsilon)^T]\\
+&= E[(XX^T)^{-1}X\epsilon\epsilon^T((XX^T)^{-1}X)^T]\\
+&= E[\epsilon\epsilon^T](XX^T)^{-1}X((XX^T)^{-1}X)^T\\
+&= \sigma^2 I \\
+&= \sigma^2
+\end{align*}
+$$
+If we assume X is non-stochastic.
+
 3. [2pts] Show that maximizing the likelihood is equivalent to minimizing the squared error $\sum_{i=1}^n (y_i - x_i\beta)^2$. [Hint: Use $\sum_{i=1}^n a_i^2 = a^Ta$]
 
+The log-likelihood is:
+$$
+\begin{align*}
+l(\theta) &:= log( p(D|\theta) )\\
+&= log(\prod_{i=1}^N p(y_i|X_i,\theta))\\
+&= \sum_{i=1}^N log(p(y_i|X_i,\theta))
+\end{align*}
+$$
+Usually use negative log-likelihood(NLL), and normal distribution to expand:
+$$
+\begin{align*}
+NLL(\theta) &= -\sum_{i=1}^N log(p(y_i|X_i,\theta))\\
+&= -\sum_{i=1}^N log [(\frac{1}{2\pi\sigma^2})^{\frac{1}{2}}exp(-\frac{1}{2\sigma^2}(y_i-X_i\beta)^2)]\\
+&= -\sum_{i=1}^N (\frac{1}{2}log (\frac{1}{2\pi\sigma^2}) -  \frac{1}{2\sigma^2}(y_i-X_i\beta)^2)\\
+&= -\frac{N}{2}log (\frac{1}{2\pi\sigma^2}) -  \frac{1}{2\sigma^2}\sum_{i=1}^N (y_i-X_i\beta)^2\\
+&= -\frac{N}{2}log (\frac{1}{2\pi\sigma^2}) - \frac{1}{2\sigma^2}RSS(\beta)
+\end{align*}
+$$
+Since maximize likelihood is equivalent to minimize NLL, so it is equivalent to minimizing the squared error $RSS=\sum_{i=1}^n (y_i - x_i\beta)^2$.
+
 4. [2pts] Write the squared error in vector notation, (see above hint), expand the expression, and collect like terms. [Hint: Use $\beta^Tx^Ty = y^Tx\beta$ and $x^Tx$ is symmetric]
+The squared error in vector notation is,
+$$
+\begin{align*}
+\sum_{i=1}^n (y_i - x_i\beta)^2 &= (Y - X^T\beta)^T(Y -X^T\beta)\\
+&= Y^TY - \beta^TXY -YX^T\beta + \beta^TXX^T\beta\\
+&= Y^TY - 2\beta^TXY + \beta^TXX^T\beta\\
+\end{align*}
+$$
 
 5. [3pts] Use the likelihood expression to write the negative log-likelihood.
-    Write the derivative of the negative log-likelihood with respect to $\beta$, set equal to zero, and solve to show the maximum likelihood estimate $\hat\beta$ as above. 
+    Write the derivative of the negative log-likelihood with respect to $\beta$, set equal to zero, and solve to show the maximum likelihood estimate $\hat\beta$ as above.
+
+As derived in question 3,
+$$
+\begin{align*}
+NLL(\theta) &= -\sum_{i=1}^N log(p(y_i|X_i,\theta))\\
+&= -\frac{N}{2}log (\frac{1}{2\pi\sigma^2}) - \frac{1}{2\sigma^2}RSS(\beta)
+\end{align*}
+$$
+To minimize NNL, is to minimize:
+
+$RSS(\beta)=(Y-X^T\beta)^T(Y-X^T\beta)$
+$= Y^TY - 2\beta^TXY + \beta^TXX^T\beta$
+
+Take derivative w.r.t $\beta$ is
+
+$\frac{\partial RSS}{\partial \beta}= -2XY + 2(XX^T)\beta$
+
+Set the derivative to zero,
+
+$-2XY + 2(XX^T)\beta=0$
+
+$\hat\beta = (XX^T)^{-1}XY$
+
 
 ## Toy Data [2pts]
 
-For visualization purposes and to minimize computational resources we will work with 1-dimensional toy data. 
+For visualization purposes and to minimize computational resources we will work with 1-dimensional toy data.
 
 That is $X \in \mathbb{R}^{m \times n}$ where $m=1$.
 
@@ -143,10 +248,10 @@ end
 1. [1pts] Write a function which produces a batch of data $x \sim \text{Uniform}(0,20)$ and `y = target_f(x)`
 
 ```julia
-
+using Random
 function sample_batch(target_f, batch_size)
-  x =#TODO
-  y =#TODO
+  x = rand(0:20,1,batch_size)
+  y = target_f(x)
   return (x,y)
 end
 
@@ -173,15 +278,24 @@ end
 ```julia
 
 using Plots
+s1=sample_batch(target_f1,1000)
+x1=s1[1]
+y1=s1[2]
+plot_f1 = plot(x1',y1,seriestype=:scatter,title="target_f1 Plot",xlabel="x1"
+,ylabel="y1")
 
-x1,y1 =#TODO
-plot_f1 = #TODO
+s2=sample_batch(target_f2,1000)
+x2=s2[1]
+y2=s2[2]
+plot_f2 = plot(x2',y2,seriestype=:scatter,title="target_f2 Plot",xlabel="x2"
+,ylabel="y2")
 
-x2,y2 =#TODO
-plot_f2 = #TODO
+s3=sample_batch(target_f3,1000)
+x3=s3[1]
+y3=s3[2]
+plot_f3 = plot(x3',y3,seriestype=:scatter,title="target_f3 Plot",xlabel="x3"
+,ylabel="y3");
 
-x3,y3 = #TODO
-plot_f3 = #TODO
 
 ```
 
@@ -195,23 +309,34 @@ plot_f3 = #TODO
 
 ```julia
 
-
+using LinearAlgebra
 function beta_mle(X,Y)
-  beta = #TODO
+  beta = inv(X*X')*X*Y
   return beta
 end
 
 n=1000 # batch_size
 
-x_1, y_1 = #TODO
-β_mle_1 = #TODO
+#Use the same sample data that used to create plot_f1 above
+x1=s1[1]
+y1=s1[2]
+x0=ones(1,n)
+X1=vcat(x0,x1)
+β_mle_1 = beta_mle(X1,y1)
 
-x_2, y_2 = #TODO
-β_mle_2 = #TODO
+#Use the same sample data that used to create plot_f2 above
+x2=s2[1]
+y2=s2[2]
+x0=ones(1,n)
+X2=vcat(x0,x2)
+β_mle_2 = beta_mle(X2,y2)
 
-x_3, y_3 =#TODO
-β_mle_3 = #TODO
-
+#Use the same sample data that used to create plot_f3 above
+x3=s3[1]
+y3=s3[2]
+x0=ones(1,n)
+X3=vcat(x0,x3)
+β_mle_3 = beta_mle(X3,y3)
 ```
 
 2. [2pts] For each function, plot the linear regression model given by $Y \sim \mathcal{N}(X^T\hat\beta, \sigma^2 I)$ for $\sigma=1.$.
@@ -220,15 +345,22 @@ x_3, y_3 =#TODO
     **Display 3 plots, one for each target function, showing samples of data and maximum likelihood estimate linear regression model**
 
 ```julia
-plot!(plot_f1,#TODO)
+x_range = range(0., stop=20., length=1000)
+fit_line1=β_mle_1[2] .*x_range .+ β_mle_1[1]
+plot!(plot_f1,x_range,fit_line1,ribbon=1.0,label=["fit_line1"],title="target f1 Plot with regression line",xlabel="x1"
+,ylabel="y1")
 ```
 
 ```julia
-plot!(plot_f2,#TODO)
+fit_line2=β_mle_2[2] .*x_range .+ β_mle_2[1]
+plot!(plot_f2,x_range,fit_line2,ribbon=1.0,label=["fit_line2"],title="target f2 Plot with regression line",xlabel="x2"
+,ylabel="y2")
 ```
 
 ```julia
-plot!(plot_f3,#TODO)
+fit_line3=β_mle_3[2] .*x_range .+ β_mle_3[1]
+plot!(plot_f3,x_range,fit_line3,ribbon=1.0,label=["fit_line3"],title="target f3 Plot with regression line",xlabel="x3"
+,ylabel="y3")
 ```
 
 ## Log-likelihood of Data Under Model [6pts]
@@ -244,7 +376,8 @@ function gaussian_log_likelihood(μ, σ, x)
   """
   compute log-likelihood of x under N(μ,σ)
   """
-  return #TODO: log-likelihood function
+  ll= log.(1 ./(sqrt(2*pi) .*σ) .*exp.(-1 ./(2 .*σ.^2) .*(x .- μ).^2))
+  return ll
 end
 ```
 
@@ -256,14 +389,17 @@ using Distributions: pdf, Normal
 x = randn()
 μ = randn()
 σ = rand()
+
 @test size(gaussian_log_likelihood(μ,σ,x)) == () # Scalar log-likelihood
 @test gaussian_log_likelihood.(μ,σ,x) ≈ log.(pdf.(Normal(μ,σ),x)) # Correct Value
+
 # Vector valued x under constant mean and variance
 x = randn(100)
 μ = randn()
 σ = rand()
 @test size(gaussian_log_likelihood.(μ,σ,x)) == (100,) # Vector of log-likelihoods
 @test gaussian_log_likelihood.(μ,σ,x) ≈ log.(pdf.(Normal(μ,σ),x)) # Correct Values
+
 # Vector valued x under vector valued mean and variance
 x = randn(10)
 μ = randn(10)
@@ -273,13 +409,16 @@ x = randn(10)
 end
 ```
 
-2. [2pts] Use your gaussian log-likelihood function to write the code which computes the negative log-likelihood of the target value $Y$ under the model $Y \sim \mathcal{N}(X^T\beta, \sigma^2*I)$ for 
+2. [2pts] Use your gaussian log-likelihood function to write the code which computes the negative log-likelihood of the target value $Y$ under the model $Y \sim \mathcal{N}(X^T\beta, \sigma^2*I)$ for
     a given value of $\beta$.
 
 ```julia
 
 function lr_model_nll(β,x,y;σ=1.)
-  return #TODO: Negative Log Likelihood
+  NLL= sum(-gaussian_log_likelihood(x'*β,σ,y))
+end
+function lr_model_nll(β,x,y;σ=1.)
+  NLL = -size(x)[2]/2 * log(1/(2*pi*σ)) .- 1/(2*σ^2) * (y' * y .- 2 * β'*x*y .+β'*x*x'*β)
 end
 
 ```
@@ -295,9 +434,9 @@ for n in (10,100,1000)
       println("--------  $target_f  ------------")
       for σ_model in (0.1,0.3,1.,2.)
         println("--------  $σ_model  ------------")
-        x,y = #TODO
-        β_mle = #TODO
-        nll = #TODO
+        x,y = sample_batch(target_f,n)
+        β_mle = beta_mle(x,y)
+        nll = lr_model_nll(β_mle,x,y;σ=σ_model)
         println("Negative Log-Likelihood: $nll")
       end
     end
@@ -305,15 +444,26 @@ end
 
 ```
 
-4. [1pts] For each target function, what is the best choice of $\sigma$? 
+4. [1pts] For each target function, what is the best choice of $\sigma$?
+
+From the printed info, we can see in most cases, NLL numebrs when σ=0.1 are not stable, for example there
+is a huge drop of NLL for target_f3 when σ=0.1 changed to σ=0.3 and n=1000.  As expected too small values of $\sigma$
+have precision issues. Especially for target_f3, which has bigger variance, small σ choice will not reflect the
+true variance of the distribution.
+
+To choose the right σ, maybe better to look at data with bigger batch size.
+
+For target_f3, σ=0.1 data not precise, σ=0.3 and σ=1 NLL number are close, σ=2 NLL too large. So choose σ=1
+for better precision.
+
+For target_f2, situation more or less similar to target_f3, also choose σ=1.
+
+For target_f1, the ture distribution known to be have small variance, and this reflected in the result, choose
+σ=1 or 0.3 not very different. We can choose either one.
 
 
-Please note that $\sigma$ and batch-size $n$ are modelling hyperparameters. 
-In the expression of maximum likelihood estimate, $\sigma$ or $n$ do not appear, and in principle shouldn't affect the final answer.
-However, in practice these can have significant effect on the numerical stability of the model. 
-Too small values of $\sigma$ will make data away from the mean very unlikely, which can cause issues with precision.
-Also, the negative log-likelihood objective involves a sum over the log-likelihoods of each datapoint. This means that with a larger batch-size $n$, there are more datapoints to sum over, so a larger negative log-likelihood is not necessarily worse. 
-The take-home is that you cannot directly compare the negative log-likelihoods achieved by these models with different hyperparameter settings.
+
+
 
 ## Automatic Differentiation and Maximizing Likelihood [3pts]
 
@@ -334,8 +484,9 @@ using Zygote: gradient
 β_test = randn()
 σ_test = rand()
 x,y = sample_batch(target_f1,100)
-ad_grad = #TODO
-hand_derivative = #TODO
+f(β)=lr_model_nll(β,x,y;σ=σ_test)[1]
+ad_grad = gradient(f,β_test)
+hand_derivative = - 1/(2*σ_test^2) .*(-2 .*x*y .+2 .*(x*x')*β_test)[1]
 @test ad_grad[1] ≈ hand_derivative
 end
 
@@ -346,7 +497,7 @@ end
 In this question we will compute gradients of of negative log-likelihood with respect to $\beta$.
 We will use gradient descent to find $\beta$ that maximizes the likelihood.
 
-1. [3pts] Write a function `train_lin_reg` that accepts a target function and an initial estimate for $\beta$ and some 
+1. [3pts] Write a function `train_lin_reg` that accepts a target function and an initial estimate for $\beta$ and some
     hyperparameters for batch-size, model variance, learning rate, and number of iterations.
     Then, for each iteration:
     * sample data from the target function
@@ -361,39 +512,64 @@ using Logging # Print training progress to REPL, not pdf
 function train_lin_reg(target_f, β_init; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
     β_curr = β_init
     for i in 1:iters
-      x,y = #TODO
-      @info "loss: $()  β: $β_curr" #TODO: log loss, if you want to monitor training progress
-      grad_β = #TODO: compute gradients
-      β_curr = #TODO: gradient descent
+      x,y = sample_batch(target_f,bs)
+      NLL= lr_model_nll(β_curr,x,y;σ=σ_model)
+      f(β)=lr_model_nll(β,x,y;σ=σ_model)[1]
+      grad_β = gradient(f,β_curr)[1]
+      #@info "loss: $(NLL)  β: $β_curr grad:$grad_β   " #TODO: log loss, if you want to monitor training progress
+      β_curr = β_curr + grad_β * lr
     end
     return β_curr
 end
 
 ```
 
-2. [2pts] For each target function, start with an initial parameter $\beta$, 
+2. [2pts] For each target function, start with an initial parameter $\beta$,
     learn an estimate for $\beta_\text{learned}$ by gradient descent.
     Then plot a $n=1000$ sample of the data and the learned linear regression model with shaded region for uncertainty corresponding to plus/minus one standard deviation.
 
 ```julia
 
+# Plot for learned regression for target_f1
 β_init = 1000*randn() # Initial parameter
-β_learned= #TODO: call training function
+β1_learned= train_lin_reg(target_f1, β_init; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
+x_range=1:20
+learned_line1 = β1_learned .* x_range
+x,y = sample_batch(target_f1,1000)
+plotl1 = plot(x',y,title="learned_line1",seriestype=:scatter)
+display(plot!(plotl1,learned_line1,ribbon=1))
 
-#TODO: For each target function, plot data samples and learned regression
+#Plot for learned regression for target_f2
+β_init2 = 1000*randn()
+β2_learned = train_lin_reg(target_f2, β_init2; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
+learned_line2 = β2_learned .* x_range
+x,y = sample_batch(target_f2,1000)
+plotl2 = plot(x',y,title="learned_line2",seriestype=:scatter)
+display(plot!(plotl2,learned_line2,ribbon=1))
+
+#Plot for learned regression for target_f3
+β_init3 = 1000*randn()
+β3_learned = train_lin_reg(target_f3, β_init3; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
+learned_line3 = β3_learned .* x_range
+x,y = sample_batch(target_f3,1000)
+plotl3 = plot(x',y,title="learned_line3",seriestype=:scatter)
+display(plot!(plotl3,learned_line3,ribbon=1))
+
+
+
 
 ```
 
 ### Non-linear Regression with a Neural Network [9pts]
 
-In the previous questions we have considered a linear regression model 
+In the previous questions we have considered a linear regression model
 
 $$Y \sim \mathcal{N}(X^T \beta, \sigma^2)$$
 
 This model specified the mean of the predictive distribution for each datapoint by the product of that datapoint with our parameter.
 
 Now, let us generalize this to consider a model where the mean of the predictive distribution is a non-linear function of each datapoint.
-We will have our non-linear model be a simple function called `neural_net` with parameters $\theta$ 
+We will have our non-linear model be a simple function called `neural_net` with parameters $\theta$
 (collection of weights and biases).
 
 $$Y \sim \mathcal{N}(\texttt{neural\_net}(X,\theta), \sigma^2)$$
@@ -405,22 +581,25 @@ $$Y \sim \mathcal{N}(\texttt{neural\_net}(X,\theta), \sigma^2)$$
     This network will output the mean vector, test that it outputs the correct shape for some random parameters.
 
 ```julia
-
-# Neural Network Function
 function neural_net(x,θ)
-  return #TODO
+    h=tanh.(θ.w1'*x .+ θ.b1)
+    z=θ.w2'*h .+ θ.b2
+return vec(z ./size(x)[2])
 end
 
 # Random initial Parameters
-θ = #TODO
+w1=30*randn(1,10)
+b1=10*randn(10,1)
+w2=30*randn(10,1)
+b2=10*randn()
+θ = (w1=w1, b1=b1, w2=w2, b2=b2)
 
 @testset "neural net mean vector output" begin
 n = 100
 x,y = sample_batch(target_f1,n)
-μ = neural_net(x,θ)
-@test size(μ) == (n,)
+µ = neural_net(x,θ)
+@test size(µ) == (n,)
 end
-
 ```
 
 2. [2pts] Write the code that computes the negative log-likelihood for this model where the mean is given by the output of the neural network and $\sigma = 1.0$
@@ -428,12 +607,12 @@ end
 ```julia
 
 function nn_model_nll(θ,x,y;σ=1)
-  return #TODO
+  return sum(-gaussian_log_likelihood(θ,σ,y))
 end
 
 ```
 
-3. [2pts] Write a function `train_nn_reg` that accepts a target function and an initial estimate for $\theta$ and some 
+3. [2pts] Write a function `train_nn_reg` that accepts a target function and an initial estimate for $\theta$ and some
     hyperparameters for batch-size, model variance, learning rate, and number of iterations.
     Then, for each iteration:
     * sample data from the target function
@@ -447,11 +626,19 @@ using Logging # Print training progress to REPL, not pdf
 
 function train_nn_reg(target_f, θ_init; bs= 100, lr = 1e-5, iters=1000, σ_model = 1. )
     θ_curr = θ_init
+    w1=30*randn(1,10)
+    b1=10*randn(10,1)
+    w2=30*randn(10,1)
+    b2=10*randn()
+    theta= (w1=w1, b1=b1, w2=w2, b2=b2)
     for i in 1:iters
-      x,y = #TODO
-      @info "loss: $()" #TODO: log loss, if you want to montior training
-      grad_θ = #TODO: compute gradients
-      θ_curr = #TODO: gradient descent
+      x,y = sample_batch(target_f, bs)
+      μ=neural_net(x,theta)
+      NLL= nn_model_nll(μ,x,y;σ=σ_model)
+      f(θ)=nn_model_nll(θ,x,y;σ=σ_model)
+      grad_θ = gradient(f,θ_curr)[1]
+      #@info "loss: $(NLL), θ: $θ_curr, grad: $grad_θ " #TODO: log loss, if you want to montior training
+      θ_curr = θ_curr + grad_θ*lr
     end
     return θ_curr
 end
@@ -465,10 +652,22 @@ end
 ```julia
 
 #TODO: For each target function
-θ_init = #TODO
-θ_learned = #TODO
 
-#TODO: plot data samples and learned regression
+θ_init=10*randn(1000)
+θ1_learned = train_nn_reg(target_f1, θ_init; bs= 1000, lr = 1e-5, iters=1000, σ_model = 1. )
+x_range=1:20
+x,y = sample_batch(target_f1,1000)
+display(plot(x',hcat(y,θ1_learned),title="learned line1",seriestype=:scatter))
+
+θ_init=10*randn(1000)
+θ2_learned = train_nn_reg(target_f2, θ_init; bs= 1000, lr = 1e-5, iters=1000, σ_model = 1. )
+x,y = sample_batch(target_f2,1000)
+display(plot(x',hcat(y,θ2_learned),title="learned line1",seriestype=:scatter))
+
+θ_init=10*randn(1000)
+θ3_learned = train_nn_reg(target_f3, θ_init; bs= 1000, lr = 1e-5, iters=1000, σ_model = 1. )
+x,y = sample_batch(target_f3,1000)
+plott3 = plot(x',hcat(y,θ3_learned),title="learned line3",seriestype=:scatter)
 
 ```
 
@@ -496,26 +695,28 @@ $$
 
 1. [1pts] Write the code for a fully-connected neural network (multi-layer perceptron) with one 10-dimensional hidden layer and a `tanh` nonlinearirty, and outputs both a vector for mean and $\log \sigma$. Test the output shape is as expected.
 
-
 ```julia
-
 # Neural Network Function
 function neural_net_w_var(x,θ)
-  return #TODO
+  h = tanh.(θ.w1'*x .+ θ.b1)
+  z = θ.w2'*h .+ θ.b2
+  μ = vec(z ./size(x)[2])
+  logσ = log.(1 /(size(x)[2]-1) .* (vec(x)-μ).^2)
+  return μ, logσ
 end
 
 # Random initial Parameters
 θ = #TODO
-
 @testset "neural net mean and logsigma vector output" begin
 n = 100
 x,y = sample_batch(target_f1,n)
-μ, logσ = neural_net_w_var(x,θ)
-@test size(μ) == (n,)
+µ, logσ = neural_net_w_var(x,θ)
+@test size(µ) == (n,)
 @test size(logσ) == (n,)
 end
-
 ```
+
+
 
 2. [2pts] Write the code that computes the negative log-likelihood for this model where the mean and $\log \sigma$ is given by the output of the neural network.
     (Hint: Don't forget to take $\exp \log \sigma$)
@@ -523,37 +724,47 @@ end
 ```julia
 
 function nn_with_var_model_nll(θ,x,y)
-  return #TODO
+  μ=θ[1]
+  σ=exp.(θ[2])
+  return sum(-gaussian_log_likelihood(μ,σ,y))
 end
 
 ```
 
-3. [1pts] Write a function `train_nn_w_var_reg` that accepts a target function and an initial estimate for $\theta$ and some 
+3. [1pts] Write a function `train_nn_w_var_reg` that accepts a target function and an initial estimate for $\theta$ and some
     hyperparameters for batch-size, learning rate, and number of iterations.
     Then, for each iteration:
     * sample data from the target function
     * compute gradients of negative log-likelihood with respect to $\theta$
     * update the estimate of $\theta$ with gradient descent with specified learning rate
     and, after all iterations, returns the final estimate of $\theta$.
-
 ```julia
-
 function train_nn_w_var_reg(target_f, θ_init; bs= 100, lr = 1e-4, iters=10000)
-    θ_curr = θ_init
-    for i in 1:iters
-      x,y = #TODO
-      @info "loss: $()" #TODO: log loss
-      grad_θ = #TODO compute gradients
-      θ_curr = #TODO gradient descent
-    end
-    return θ_curr
+  θ_curr = θ_init
+  w1=30*randn(1,10)
+  b1=10*randn(10,1)
+  w2=30*randn(10,1)
+  b2=10*randn()
+  theta= (w1=w1, b1=b1, w2=w2, b2=b2)
+  for i in 1:iters
+    x,y = sample_batch(target_f,bs)
+    θ = neural_net_w_var(x,theta)
+    NLL1= nn_with_var_model_nll(θ,x,y)
+    f(θ)=nn_with_var_model_nll(θ,x,y)
+    #@info "loss: $(NLL), θ: $θ_curr, grad: $grad_θ "
+    grad_θ = gradient(f, θ_curr)[1]
+    θ_curr = θ_curr .+ grad_θ*lr
+  end
+  return θ_curr
 end
+
 
 ```
 
+
 4. [4pts] For each target function, start with an initialization of the network parameters, $\theta$,
     learn an estimate for $\theta_\text{learned}$ by gradient descent.
-    Then plot a $n=1000$ sample of the dataset and the learned regression model with shaded uncertainty bounds corresponding to plus/minus one standard deviation given by the variance of the predictive distribution at each input location 
+    Then plot a $n=1000$ sample of the dataset and the learned regression model with shaded uncertainty bounds corresponding to plus/minus one standard deviation given by the variance of the predictive distribution at each input location
     (output by the neural network).
     (Hint: `ribbon` argument for shaded uncertainty bounds can accept a vector of $\sigma$)
 
@@ -561,22 +772,30 @@ end
     * Adjusting the hyperparameters like learning rate and batch size
     * Train for more iterations
     * Try a different random initialization, like sample random weights and bias matrices with lower variance.
-    
+
     For this question **you will not be assessed on the final quality of your model**.
-    Specifically, if you fails to train an optimal model for the data that is okay. 
+    Specifically, if you fails to train an optimal model for the data that is okay.
     You are expected to learn something that is somewhat reasonable, and **demonstrates that this model is training and learning variance**.
 
-    If your implementation is correct, it is possible to learn a reasonable model with fewer than 10 minutes of training on a laptop CPU. 
+    If your implementation is correct, it is possible to learn a reasonable model with fewer than 10 minutes of training on a laptop CPU.
     The default hyperparameters should help, but may need some tuning.
 
 ```julia
+θ_init=[10*randn(1000),randn(1000)]
+θ1_learned = train_nn_w_var_reg(target_f1, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+x_range=1:20
+x,y = sample_batch(target_f1,1000)
+display(plot(x',hcat(y,θ1_learned[1],θ1_learned[2]),title="learned line1",seriestype=:scatter))
 
-#TODO: For each target function
-θ_init = #TODO
-θ_learned = #TODO
+θ_init=[10*randn(1000),randn(1000)]
+θ2_learned = train_nn_w_var_reg(target_f2, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+x,y = sample_batch(target_f2,1000)
+display(plot(x',hcat(y,θ2_learned[1],θ2_learned[2]),title="learned line1",seriestype=:scatter))
 
-#TODO: plot data samples and learned regression
-
+θ_init=[10*randn(1000),randn(1000)]
+θ3_learned = train_nn_w_var_reg(target_f3, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+x,y = sample_batch(target_f3,1000)
+plott3 = plot(x',hcat(y,θ3_learned[1],θ3_learned[2]),title="learned line3",seriestype=:scatter)
 
 ```
 
@@ -586,4 +805,3 @@ end
 * Using a more stable optimizer, like Adam. You may import this from a library.
 * Increasing the expressivity of the neural network, increase the number of layers or the dimensionality of the hidden layer.
 * Careful tuning of hyperparameters, like learning rate and batchsize.
-
