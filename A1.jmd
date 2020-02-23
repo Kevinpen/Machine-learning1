@@ -51,7 +51,7 @@ prob_range = range(0., stop=1., length=500)
 
 # Make plot
 using Plots
-labels=["Show" "Folder" "Deleted"]
+labels=["Show" "Folder" "Delete"]
 
 p1=plot(prob_range, expected_loss_of_action(prob_range, 1),title="Expected wasted user time",
          label=labels[1],xlabel="Spam Probability",ylabel="Wasted Time")
@@ -536,24 +536,24 @@ end
 x_range=1:20
 learned_line1 = β1_learned .* x_range
 x,y = sample_batch(target_f1,1000)
-plotl1 = plot(x',y,title="learned_line1",seriestype=:scatter)
-display(plot!(plotl1,learned_line1,ribbon=1))
+plotl1 = plot(x',y,title="learned_line_target_f1",seriestype=:scatter,label="data")
+display(plot!(plotl1,learned_line1,label="learned line",ribbon=1))
 
 #Plot for learned regression for target_f2
 β_init2 = 1000*randn()
 β2_learned = train_lin_reg(target_f2, β_init2; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
 learned_line2 = β2_learned .* x_range
 x,y = sample_batch(target_f2,1000)
-plotl2 = plot(x',y,title="learned_line2",seriestype=:scatter)
-display(plot!(plotl2,learned_line2,ribbon=1))
+plotl2 = plot(x',y,title="learned_line2_target_f2",seriestype=:scatter,label="data")
+display(plot!(plotl2,learned_line2,ribbon=1,label="learned line"))
 
 #Plot for learned regression for target_f3
 β_init3 = 1000*randn()
 β3_learned = train_lin_reg(target_f3, β_init3; bs= 100, lr = 1e-6, iters=1000, σ_model = 1. )
 learned_line3 = β3_learned .* x_range
 x,y = sample_batch(target_f3,1000)
-plotl3 = plot(x',y,title="learned_line3",seriestype=:scatter)
-display(plot!(plotl3,learned_line3,ribbon=1))
+plotl3 = plot(x',y,title="learned_line_target_f3",seriestype=:scatter,label="data")
+display(plot!(plotl3,learned_line3,ribbon=1,label="learned line"))
 
 
 
@@ -597,8 +597,8 @@ b2=10*randn()
 @testset "neural net mean vector output" begin
 n = 100
 x,y = sample_batch(target_f1,n)
-µ = neural_net(x,θ)
-@test size(µ) == (n,)
+μ = neural_net(x,θ)
+@test size(μ) == (n,)
 end
 ```
 
@@ -710,8 +710,8 @@ end
 @testset "neural net mean and logsigma vector output" begin
 n = 100
 x,y = sample_batch(target_f1,n)
-µ, logσ = neural_net_w_var(x,θ)
-@test size(µ) == (n,)
+μ, logσ = neural_net_w_var(x,θ)
+@test size(μ) == (n,)
 @test size(logσ) == (n,)
 end
 ```
@@ -783,19 +783,22 @@ end
 ```julia
 θ_init=[10*randn(1000),randn(1000)]
 θ1_learned = train_nn_w_var_reg(target_f1, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+sigma1= exp.(θ1_learned[2])
 x_range=1:20
 x,y = sample_batch(target_f1,1000)
-display(plot(x',hcat(y,θ1_learned[1],θ1_learned[2]),title="learned line1",seriestype=:scatter))
+display(plot(x',hcat(y,θ1_learned[1],sigma1),title="learned mean,sigma for f1",seriestype=:scatter,label=["data" "learned_mean" "learned_sigma"]))
 
 θ_init=[10*randn(1000),randn(1000)]
 θ2_learned = train_nn_w_var_reg(target_f2, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+sigma2=exp.(θ2_learned[2])
 x,y = sample_batch(target_f2,1000)
-display(plot(x',hcat(y,θ2_learned[1],θ2_learned[2]),title="learned line1",seriestype=:scatter))
+display(plot(x',hcat(y,θ2_learned[1],sigma2),title="learned mean,sigma for f2",seriestype=:scatter,label=["data" "learned_mean" "learned_sigma"]))
 
 θ_init=[10*randn(1000),randn(1000)]
 θ3_learned = train_nn_w_var_reg(target_f3, θ_init; bs= 1000, lr = 1e-5, iters=1000)
+sigma3=exp.(θ3_learned[2])
 x,y = sample_batch(target_f3,1000)
-plott3 = plot(x',hcat(y,θ3_learned[1],θ3_learned[2]),title="learned line3",seriestype=:scatter)
+plott3 = plot(x',hcat(y,θ3_learned[1],sigma3),title="learned mean,sigma for f3",seriestype=:scatter, label=["data" "learned_mean" "learned_sigma"])
 
 ```
 
