@@ -451,18 +451,18 @@ end
 4. [1pts] For each target function, what is the best choice of $\sigma$?
 
 From the printed info, we can see in most cases, NLL numebrs when σ=0.1 are not stable, for example there
-is a huge drop of NLL for target f3 when σ=0.1 changed to σ=0.3 and n=1000.  As expected too small values of $\sigma$
+is a huge increase of NLL for target f3 when σ=0.1 changed to σ=0.3 and n=1000. This huge increase does not happen when n=10 and n=100.  As expected too small values of $\sigma$
 have precision issues. Especially for target f3, which has bigger variance, small σ choice will not reflect the
 true variance of the distribution.
 
 To choose the right σ, maybe better to look at data with bigger batch size.
 
-For target f3, σ=0.1 data not precise, σ=0.3 and σ=1 NLL number are close, σ=2 NLL too large. So choose σ=1
+For target f3, σ=0.1 data not precise, σ=0.3 and σ=1 NLL number are close, σ=2 NLL also not very stable for example values drop too much as n=1000 and n=100. So choose σ=1
 for better precision.
 
-For target f2, situation more or less similar to target_f3, also choose σ=1.
+For target f2, situation more or less similar to target_f3. For example big drop of NLL from σ=0.1 to 0.3 when n=10, n=100 and n=1000, this may results from both values not stable. Also choose σ=1.
 
-For target f1, the ture distribution known to be have small variance, and this reflected in the result, choose
+For target f1, the ture distribution known to be have small variance, and this reflected in the result, values across all n values relatively stable. Choose
 σ=1 or 0.3 not very different. We can choose either one.
 
 
@@ -609,7 +609,7 @@ end
 
 2. [2pts] Write the code that computes the negative log-likelihood for this model where the mean is given by the output of the neural network and $\sigma = 1.0$
 
-In this case there is no derived formular for negative log-likelihood, so I have no confidence it will not produce NaN all the time.
+
 
 ```julia
 
@@ -800,24 +800,24 @@ end
 x,y = sample_batch(target_f1,1000)
 θ_init=[2 .*vec(x),randn(1000)]
 θ1_learned = train_nn_w_var_reg(target_f1, θ_init; bs= 1000, lr = 1e-7, iters=1000)
-sigma1= exp.(θ1_learned[2])
-display(plot(x',hcat(y,θ1_learned[1]),ribbon=sigma1,title="learned mean,sigma for f1",
-seriestype=:scatter))
+sigma1= θ1_learned[2]
+display(plot(x',hcat(y,θ1_learned[1],sigma1),ribbon=sigma1,title="learned mean,sigma for f1",
+seriestype=:scatter,label=["data" "mean" "sigma"]))
 
 
 x,y = sample_batch(target_f2,1000)
 θ_init=[2 .*vec(x),randn(1000)]
 θ2_learned = train_nn_w_var_reg(target_f2, θ_init; bs= 1000, lr = 1e-7, iters=1000)
-sigma2= exp.(θ1_learned[2])
-display(plot(x',hcat(y,θ2_learned[1]),ribbon=sigma2,title="learned mean,sigma for f3",
-seriestype=:scatter))
+sigma2= θ1_learned[2]
+display(plot(x',hcat(y,θ2_learned[1],sigma2),ribbon=sigma2,title="learned mean,sigma for f2",
+seriestype=:scatter,label=["data" "mean" "sigma"]))
 
 x,y = sample_batch(target_f3,1000)
 θ_init=[2 .*vec(x),randn(1000)]
 θ3_learned = train_nn_w_var_reg(target_f3, θ_init; bs= 1000, lr = 1e-7, iters=1000)
-sigma3= exp.(θ1_learned[2])
-display(plot(x',hcat(y,θ3_learned[1]),ribbon=sigma3,title="learned mean,sigma for f2",
-seriestype=:scatter))
+sigma3= θ1_learned[2]
+display(plot(x',hcat(y,θ3_learned[1],sigma3),ribbon=sigma3,title="learned mean,sigma for f3",
+seriestype=:scatter,label=["data" "mean" "sigma"]))
 
 ```
 
